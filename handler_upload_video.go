@@ -43,6 +43,12 @@ func (cfg *apiConfig) handlerUploadVideo(w http.ResponseWriter, r *http.Request)
 		respondWithError(w, http.StatusUnauthorized, "User not authorized to make that request", err)
 		return
 	}
+	//We use a signed video so the client can upload to a private bucket:
+	video, err = cfg.dbVideoToSignedVideo(video)
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Error issuing presigned video object", err)
+		return
+	}
 
 	vidFile, vidHeader, err := r.FormFile("video")
 	if err != nil {
@@ -116,7 +122,8 @@ func (cfg *apiConfig) handlerUploadVideo(w http.ResponseWriter, r *http.Request)
 	}
 
 	cfg.s3Client.PutObject(r.Context(), &s3Params)
-	urlPath := fmt.Sprintf("http://%s.s3.%s.amazonaws.com/%s", cfg.s3Bucket, cfg.s3Region, id)
+
+	urlPath := fmt.Sprintf("%s,%s", cfg.s3Bucket, id)
 	video.VideoURL = &urlPath
 
 	err = cfg.db.UpdateVideo(video)
