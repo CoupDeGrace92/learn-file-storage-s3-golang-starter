@@ -43,12 +43,6 @@ func (cfg *apiConfig) handlerUploadVideo(w http.ResponseWriter, r *http.Request)
 		respondWithError(w, http.StatusUnauthorized, "User not authorized to make that request", err)
 		return
 	}
-	//We use a signed video so the client can upload to a private bucket:
-	video, err = cfg.dbVideoToSignedVideo(video)
-	if err != nil {
-		respondWithError(w, http.StatusInternalServerError, "Error issuing presigned video object", err)
-		return
-	}
 
 	vidFile, vidHeader, err := r.FormFile("video")
 	if err != nil {
@@ -122,8 +116,8 @@ func (cfg *apiConfig) handlerUploadVideo(w http.ResponseWriter, r *http.Request)
 	}
 
 	cfg.s3Client.PutObject(r.Context(), &s3Params)
-
-	urlPath := fmt.Sprintf("%s,%s", cfg.s3Bucket, id)
+	//We want to use cloudfront url this time. Three parts, cloudfront domain, asset "path", key.  id contains the last two
+	urlPath := fmt.Sprintf("https://%s/%s", cfg.s3CfDistribution, id)
 	video.VideoURL = &urlPath
 
 	err = cfg.db.UpdateVideo(video)
